@@ -1,0 +1,392 @@
+#include <iostream>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <cmath>
+#include <vector>
+#include <fstream>
+#include <string.h>
+#include <math.h>
+
+using namespace std;
+
+const int LEN = 0Xfff;
+
+char fsm[8][128];  //清除注释，做一个状态机
+
+FILE *fp;     //文件指针
+
+char CHAR;    //字符变量CHAR，它存放着新读入的源程序字符
+
+string TOKEN;  //字符串TOKEN，它存放着构成单词符号的字符串
+
+string afterPreDeal;  //存放着经过预处理后的程序内容
+
+string TABLE[LEN] = {"if", "int", "for", "while", "do", "return", "break", "continue", "else"};  //保留字
+
+void inputFile();  //输入程序内容(允许换行、空格和Tab键)
+
+void dealNote();
+
+void saveToFile(char *p, char * filename); //将输入的程序内容保存到文件里
+
+void judge(char * filename);  //对单词进行归类显示
+
+string& trim(string &str, string::size_type pos = 0); //去除文本文件中的空格、Tab和换行
+
+void readFile(char * filename);  //读取文件内容并输出
+
+void preDeal(char * filename);   //对程序文件做预处理，并将预处理后的内容保存在新文件G:\\newcontextfile.txt中
+
+void GETCHAR();   //用于读取下一个原程序字符至CHAR中，并把字符指针向后移一位
+
+void GETNBC();   //先检查CHAR是否为空白字符，若是则反复调用GETCHAR直到CHAR读入的是一个非空白字符
+
+void CONCAT();   //将CHAR字符连接到TOKEN后面
+
+bool LETTER(char CHAR);  //布尔函数，若CHAR为字母则返回TRUE，反之返回FALSE;
+
+bool DIGIT(char CHAR);   //布尔函数，若CHAR为数字则返回TRUE，反之返回FALSE;
+
+bool UNDERLINE(char CHAR);  //布尔函数，若CHAR为下划线则返回TRUE，反之返回FALSE;
+
+int RESERVE();   //由TOKEN字符串查保留字表，若TOKEN中字符串为保留字则返回其种别编码，否则返回值为0
+
+void RETRACT();  //将字符指针向前移动一个位置，CHAR置为空白字符
+
+void initfsm();
+
+int main()
+{
+    //保存内容
+    cout << "*********你好，请输入程序内容(以Ctrl+Z结束)*********" << endl;
+
+    inputFile();
+
+    dealNote(); //清除注释
+
+    preDeal("G:\\nonotecontextfile.txt");  //对清除注释后的文件进行其他预处理，比如去空格，去tab，去换行
+
+    cout << "*********输出判断结果*********" << endl;
+
+    judge("G:\\newcontextfile.txt");
+
+    cout << endl;
+
+    return 0;
+}
+
+void inputFile()
+{
+    char s[10] = {'\0'};
+    fstream file("G:\\contextfile.txt", ios::out);
+    while((scanf("%c",&s))!=EOF)
+    {
+        file.write(s, strlen(s));
+    }
+    file.close();
+}
+
+void dealNote()
+{
+    int state=0;
+    char c;
+    std::string s;
+    FILE *fin=fopen("G:\\contextfile.txt","r");
+    FILE *fout=fopen("G:\\nonotecontextfile.txt","w");
+    initfsm();
+    while(fscanf(fin,"%c",&c)!=EOF)
+    {
+        state=fsm[state][c];
+        s+=c;
+        switch(state)
+        {
+            case 0:
+                fprintf(fout,"%s",s.c_str());
+                s="";
+                break;
+            case 7:
+                s="";
+                if(c=='\n')
+                {
+                    fputc(c,fout);
+                }
+                break;
+        }
+    }
+    fclose(fin);
+    fclose(fout);
+}
+
+void saveToFile(char *p, char * filename)
+{
+    if ((fp = fopen(filename, "wb")) == NULL )
+    {
+        return;
+    }
+    else
+    {
+        fwrite(p, strlen(p), 1, fp);
+    }
+    fclose(fp);
+}
+
+void judge(char *filename)
+{
+    fp = fopen(filename, "r+");
+    while(!feof(fp))
+    {
+        TOKEN.clear();
+        GETCHAR();
+        if(LETTER(CHAR))
+        {
+            int c;
+            int flag = 0;
+            while(LETTER(CHAR) || DIGIT(CHAR) || UNDERLINE(CHAR))
+            {
+                CONCAT();
+                GETCHAR();
+                {
+                    c = RESERVE();
+                    if(c == 2)
+                    {
+                        cout << "(1," << "\"" << TOKEN << "\"" << ")" << endl;
+                        flag = 1;
+                        break;
+                    }
+                }
+            }
+            RETRACT();
+            if(flag == 0)
+            {
+                c = RESERVE();
+                if(c == 0)
+                    cout << "(2," << "\"" << TOKEN  << "\"" << ")" << endl;
+                else
+                      cout << "(1," << "\"" << TOKEN  << "\"" << ")" << endl;
+            }
+            continue;
+        }
+        else if(UNDERLINE(CHAR))
+        {
+           int c;
+            int flag = 0;
+            while(LETTER(CHAR) || DIGIT(CHAR) || UNDERLINE(CHAR))
+            {
+                CONCAT();
+                GETCHAR();
+                {
+                    c = RESERVE();
+                    if(c == 2)
+                    {
+                          cout << "(1," << "\"" << TOKEN << "\"" << ")" << endl;
+                        flag = 1;
+                        break;
+                    }
+                }
+            }
+            RETRACT();
+            if(flag == 0)
+            {
+                c = RESERVE();
+                if(c == 0)
+                      cout << "(2," << "\"" << TOKEN << "\"" << ")" << endl;
+                else
+                    cout << "(1," << "\"" << TOKEN << "\"" << ")" << endl;
+            }
+            continue;
+        }
+        else if(DIGIT(CHAR))
+        {
+             while(DIGIT(CHAR))
+             {
+                 CONCAT();
+                 GETCHAR();
+             }
+             RETRACT();
+
+             cout << "(3," << "\"" << TOKEN << "\"" << ")" << endl;
+
+             continue;
+        }
+        else if(CHAR == ',' || CHAR == ';' || CHAR == '{' || CHAR == '}' || CHAR == '(' || CHAR == ')')
+        {
+              cout << "(5," << "\"" << CHAR << "\"" << ")" << endl;
+              continue;
+        }
+        else if( CHAR == '+' || CHAR == '-' || CHAR == '*' || CHAR == '\\' || CHAR == '=' )
+        {
+              char mmd = CHAR;
+              GETCHAR();
+              if(CHAR == '=')
+              {
+                  cout << "(4," << "\"" << mmd << "\"" << "=)" << endl;
+              }
+              else
+              {
+                 RETRACT();
+                 cout << "(4," << "\"" << mmd << "\"" << ")" << endl;
+              }
+              continue;
+        }
+        else if(CHAR == ' '|| CHAR == '\n' || CHAR == '\t')
+        {
+            continue;
+        }
+        else
+        {
+              if((int)CHAR == -1)
+                return;
+          //    cout << "ERROR Message" << endl;
+        }
+
+    }
+    fclose(fp);/*关闭文件*/
+}
+
+string& trim(string &str, string::size_type pos)
+{
+    static const string delim = " \t\n"; //删除空格或者tab字符
+    pos = str.find_first_of(delim, pos);
+    if (pos == string::npos)
+       return str;
+    return trim(str.erase(pos, 1));
+}
+
+void readFile(char * filename)
+{
+    FILE *pFile=fopen(filename, "r"); //获取文件的指针
+    char *pBuf;  //定义文件指针
+    fseek(pFile, 0, SEEK_END); //把指针移动到文件的结尾 ，获取文件长度
+    int len = ftell(pFile); //获取文件长度
+    pBuf = new char[len+1]; //定义数组长度
+    rewind(pFile); //把指针移动到文件开头 因为我们一开始把指针移动到结尾，如果不移动回来 会出错
+    fread(pBuf,1,len,pFile); //读文件
+    pBuf[len]=0; //把读到的文件最后一位 写为0 要不然系统会一直寻找到0后才结束
+    printf("%s", pBuf);  //显示读到的数据
+    fclose(pFile); // 关闭文件
+}
+
+void preDeal(char * filename)   //对程序文件做预处理，保存在新文件G:\\newcontextfile.txt中
+{
+  //  dealNote();
+    FILE *pFile=fopen(filename, "r"); //获取文件的指针
+    char *pBuf;  //定义文件指针
+    fseek(pFile, 0, SEEK_END); //把指针移动到文件的结尾 ，获取文件长度
+    int len = ftell(pFile); //获取文件长度
+    pBuf = new char[len+1]; //定义数组长度
+
+    string predeal;
+
+    int n = len;
+
+    if ((fp = fopen(filename, "rb")) == NULL )
+    {
+        return;
+    }
+    else
+    {
+        char p[100];
+        fread(p, n, 1, fp);
+        p[n]='\0';
+        predeal = p;
+    }
+    predeal = trim(predeal);
+    char *con = new char[predeal.length() + 10];
+    strcpy(con, predeal.c_str());
+
+    saveToFile(con, "G:\\newcontextfile.txt");  //将新文件内容保存为G:\\newcontextfile.txt
+    cout << endl;
+
+    afterPreDeal = predeal;
+
+    fclose(fp);/*关闭文件*/
+}
+
+void GETCHAR()
+{
+    CHAR = fgetc(fp);
+   // cout << "*" << CHAR << "*" << endl;
+}
+
+void GETNBC()
+{
+    while(CHAR == ' ' || CHAR == '\n' || CHAR == '\t')
+    {
+        GETCHAR();
+    }
+}
+
+void CONCAT()
+{
+    TOKEN += CHAR;
+}
+
+bool LETTER(char CHAR)
+{
+    bool isLetter = isalpha(CHAR);
+    return isLetter;
+}
+
+bool DIGIT(char CHAR)
+{
+    bool isDigit = isdigit(CHAR);
+    return isDigit;
+}
+
+bool UNDERLINE(char CHAR)
+{
+    if(CHAR == '_')
+        return true;
+    else
+        return false;
+}
+
+int RESERVE()
+{
+    int i = 0;
+    int N = 9;
+    int val = 0;
+    for(i = 0; i < N; i++)
+    {
+        if(TOKEN == TABLE[i])
+        {
+            val = 2;
+            break;
+        }
+    }
+    return val;
+}
+
+void RETRACT()
+{
+    CHAR = ' ';
+    fseek(fp,-1,SEEK_CUR);
+}
+
+void initfsm()
+{
+	const int line_len = sizeof(char)*128;
+	memset(fsm[0],0,line_len);
+	memset(fsm[1],0,line_len);
+	memset(fsm[2],2,line_len);
+	memset(fsm[3],3,line_len);
+	memset(fsm[4],3,line_len);
+	memset(fsm[5],5,line_len);
+	memset(fsm[6],5,line_len);
+	memset(fsm[7],0,line_len);
+	fsm[0]['/'] = 1;
+	fsm[0]['"'] = 5;
+	fsm[1]['/'] = 2;
+	fsm[1]['*'] = 3;
+	fsm[1]['"'] = 5;
+	fsm[2]['\n'] = 7;
+	fsm[3]['*'] = 4;
+	fsm[4]['/'] = 7;
+	fsm[4]['*'] = 4;
+	fsm[5]['"'] = 0;
+	fsm[5]['\\'] = 6;
+	fsm[7]['/'] = 1;
+	fsm[7]['"'] = 5;
+}
